@@ -3,6 +3,22 @@ const app = express()
 const bodyParser = require("body-parser")
 require("dotenv").config()
 
+const cassandra = require('cassandra-driver');
+
+const username = process.env.user
+const password = process.env.pass
+const keyspace = process.env.keyspace
+
+const client = new cassandra.Client({
+    cloud: { secureConnectBundle: './secure-connect-pick-up.zip' },
+    credentials: { username: username, password: password },
+    keyspace: keyspace
+  });
+
+  // SAMPLE QUERY
+  client.execute("select * from users").then(data => console.log(data))
+
+
 app.use(function (req, res, next) {
     res.setHeader("Access-Control-Allow-Origin", "*")
     res.setHeader("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE")
