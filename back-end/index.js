@@ -27,3 +27,5 @@ app.use(function (req, res, next) {
     //or
     res.sendFile("FILEPATH")
   })
+
+    console.log("testing")
