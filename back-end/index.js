@@ -1,23 +1,20 @@
 const express = require('express')
 const app = express()
 const bodyParser = require("body-parser")
+var fs = require('fs');
+var util = require('util');
 require("dotenv").config()
 
-const cassandra = require('cassandra-driver');
+const {client} = require('./services/dbConnection.service')
+const queries = require('./services/queries.service')
 
-const username = process.env.user
-const password = process.env.pass
-const keyspace = process.env.keyspace
-
-const client = new cassandra.Client({
-    cloud: { secureConnectBundle: './secure-connect-pick-up.zip' },
-    credentials: { username: username, password: password },
-    keyspace: keyspace
-  });
-
-  // SAMPLE QUERY
-  client.execute("select * from users").then(data => console.log(data))
-
+// Redirect log to file 
+var log_file = fs.createWriteStream(__dirname + '/debug.log', {flags : 'w'});
+var log_stdout = process.stdout;
+console.log = function(d) {
+  log_file.write(util.format(d) + '\n');
+  log_stdout.write(util.format(d) + '\n');
+};  
 
 app.use(function (req, res, next) {
     res.setHeader("Access-Control-Allow-Origin", "*")
@@ -36,10 +33,14 @@ app.use(function (req, res, next) {
     extended: true
   }));
   
-  const server = app.listen(8080, () => console.log("Listening"));
+  const server = app.listen(8080, () => console.log("Listening on port: " + 8080));
   
-  app.get("/ROUTE", (req, res) => {
-    res.send("DATA")
-    //or
-    res.sendFile("FILEPATH")
+  app.get("/get_usernames", (req, res) => {
+    console.log("User names requested by: " + req.ip)
+    queries.get_usernames().then(usernames => res.send(JSON.stringify(usernames)))
+  })
+
+  app.get("/get_names", (req, res) => {
+    console.log("Names requested by: " + req.ip)
+    queries.get_names().then(names => res.send(JSON.stringify(names)))
   })

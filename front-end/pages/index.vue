@@ -1,21 +1,17 @@
 <template>
   <v-container>
     <v-card min-height="5em" elevation="2" outlined class="mx-auto">
-      <v-form>
+      <v-form @submit="submit($event)">
         <v-list-item dense>
           <v-list-item-content>
-            <div class="overline mb-3">
-              New Meetup
-            </div>
+            <div class="overline mb-3">New Meetup</div>
           </v-list-item-content>
         </v-list-item>
         <v-list-item one-line>
           <v-list-item-content>
             <v-text-field
-              v-model="new_meet_user"
-              :rules="[
-                (v) => (v == !!v && v.length > 0) || 'User Name is Required',
-              ]"
+              v-model="new_meetup_information.buyer"
+              :rules="[(v) => !!v || 'Not a valid username']"
               label="User Name"
               required
             ></v-text-field>
@@ -23,7 +19,134 @@
         </v-list-item>
         <v-list-item one-line>
           <v-list-item-content>
-            <v-btn outlined>Create!</v-btn>
+            <v-dialog v-model="dialog" persistent>
+              <template v-slot:activator="{ on, attrs }">
+                <v-btn
+                  outlined
+                  :disabled="!is_registered_user"
+                  v-bind="attrs"
+                  v-on="on"
+                  >Create!</v-btn
+                >
+              </template>
+              <v-card>
+                <v-list-item dense>
+                  <v-list-item-content>
+                    <v-row>
+                      <v-col cols="9" class="overline mb-3"
+                        >Create New Meetup With:
+                      </v-col>
+                      <v-col>
+                        <v-avatar color="primary" size="36">
+                          {{ name_icon }}
+                        </v-avatar></v-col
+                      ></v-row
+                    >
+                    <p class="overline mb-3">
+                      {{ names[new_meetup_information.buyer] }}
+                    </p>
+                  </v-list-item-content>
+                </v-list-item>
+
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-text-field
+                      v-model="new_meetup_information.price"
+                      type="number"
+                      :rules="[
+                        (v) => !!v || 'Not a valid price',
+                        (v) =>
+                          (v > 0 && v < 999999) ||
+                          'Price must be between $0 and $999999',
+                      ]"
+                      label="Price"
+                      placeholder="$"
+                      required
+                    ></v-text-field>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-menu
+                      v-model="fromDateMenu"
+                      :close-on-content-click="false"
+                      :nudge-right="40"
+                      transition="scale-transition"
+                      offset-y
+                      max-width="290px"
+                      min-width="290px"
+                    >
+                      <template v-slot:activator="{ on }">
+                        <v-text-field
+                          ref="date"
+                          :rules="[(v) => !!v || 'The date is required']"
+                          required="true"
+                          label="Date"
+                          readonly
+                          placeholder="Meetup Date"
+                          :value="fromDateDisp"
+                          v-on="on"
+                        ></v-text-field>
+                      </template>
+                      <v-date-picker
+                        locale="en-in"
+                        v-model="new_meetup_information.date"
+                        no-title
+                        @input="fromDateMenu = false"
+                        :min="todaysDate"
+                      ></v-date-picker>
+                    </v-menu>
+                  </v-list-item-content>
+                </v-list-item>
+
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn text @click="dialog = false">Cancel</v-btn>
+                  <v-btn text @click="pick_location">Pick Location</v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
+            <v-dialog v-model="dialog2" persistent>
+              <v-card>
+                <v-list-item>
+                <v-list-item-content>
+                    <div class="overline mb-3"
+                        >Pick Meetup Spot
+                     </div>
+                  </v-list-item-content>
+                </v-list-item>
+                                <v-list-item>
+                  <v-list-item-content>
+                    <v-row>
+                      <v-col cols = '8'>
+                    <v-text-field
+                      v-model="search_location"
+                      :rules="[
+                        (v) => !!v || 'Not a valid Location']"
+                      label="Location"
+                      placeholder="Enter Address"
+                      required
+                    ></v-text-field>
+                    </v-col>
+                    <v-col cols='4'>
+                      <v-btn @click='autolocate()' :disabled='search_location.length == 0'>Search!
+                      </v-btn>
+                    </v-col>
+                    </v-row>
+                  </v-list-item-content>
+                </v-list-item>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn text @click="dialog2 = false">Cancel</v-btn>
+                  <v-btn
+                    text
+                    @click="dialog2 = false"
+                    :disabled="new_meetup_information.location == ''"
+                    >Done</v-btn
+                  >
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
           </v-list-item-content>
         </v-list-item>
       </v-form>
@@ -38,19 +161,117 @@
 </template>
 
 <script>
+import Radar from "radar-sdk-js";
+
+import GET_USERNAMES from "../services/get_usernames.service";
+import GET_NAMES from "../services/get_names.service";
+
+Radar.initialize("prj_test_pk_fb42d9965e5d72e299adfe6e5b2d040b03f43b6c");
+
 export default {
+  mounted() {
+    this.get_usernames();
+    this.get_names();
+    const app = this;
+    Radar.getLocation(function (err, result) {
+      if (!err) {
+        app.location.latitude = result.location.latitude;
+        app.location.longitude = result.location.longitude;
+        // do something with result.location, result.events, result.user
+      }
+    });
+  },
   data() {
     return {
-      new_meet_user: "",
+      search_location: "",
+      location: { latitude: 0, longitude: 0 },
+      user_data: { username: "" },
+      valid_users: [],
+      names: {},
+      dialog: false,
+      dialog2: false,
+      new_meetup_information: {
+        location: "",
+        latitude: 0,
+        longitude: 0,
+        time: "",
+        date: "",
+        buyer: "",
+        seller: "",
+        price: "",
+      },
+      fromDateMenu: false,
     };
   },
-  methods: {},
-  computed: {},
+  methods: {
+    autolocate() {
+      const app = this;
+      Radar.autocomplete(
+        {
+          query: app.search_location,
+          near: {
+            latitude: app.location.latitude,
+            longitude: app.location.longitude,
+          },
+          limit: 5,
+        },
+        function (err, result) {
+          if (!err) {
+            console.log(result);
+          }
+        }
+      );
+    },
+    pick_location() {
+      this.dialog = false;
+      this.dialog2 = true;
+    },
+    get_usernames() {
+      const app = this;
+      GET_USERNAMES((usernames) => {
+        app.valid_users = usernames;
+      });
+    },
+    get_names() {
+      const app = this;
+      GET_NAMES((names) => {
+        app.names = names;
+      });
+    },
+    submit(event) {
+      event.preventDefault();
+      if (this.is_registered_user) {
+        this.dialog = true;
+      }
+    },
+  },
+  computed: {
+    is_registered_user() {
+      return this.valid_users.includes(this.new_meetup_information.buyer);
+    },
+    name_icon() {
+      if (
+        this.names[this.new_meetup_information.buyer] &&
+        this.names[this.new_meetup_information.buyer][0] &&
+        this.names[this.new_meetup_information.buyer].split(" ")[1][0]
+      )
+        return (
+          this.names[this.new_meetup_information.buyer][0] +
+          this.names[this.new_meetup_information.buyer].split(" ")[1][0]
+        );
+      else return "";
+    },
+    todaysDate() {
+      var today = new Date();
+      var dd = String(today.getDate()).padStart(2, "0");
+      var mm = String(today.getMonth() + 1).padStart(2, "0"); //January is 0!
+      var yyyy = today.getFullYear();
+      return yyyy + "-" + mm + "-" + dd;
+    },
+    fromDateDisp() {
+      return this.new_meetup_information.date;
+      // format/do something with date
+    },
+  },
 };
 </script>
-
-<style scoped>
-.customlistitem {
-  padding: 0;
-}
-</style>

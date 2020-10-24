@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "core-js": "^3.6.5",
-    "nuxt": "^2.14.6"
+    "nuxt": "^2.14.6",
+    "radar-sdk-js": "^3.0.1",
+    "vue-google-autocomplete": "^1.1.0",
+    "vue-place-autocomplete": "^0.5.3"
   },
   "devDependencies": {
     "@nuxtjs/vuetify": "^1.11.2"
