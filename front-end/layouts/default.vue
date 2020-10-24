@@ -32,6 +32,7 @@
       <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
       <v-toolbar-title v-text="title" />
       <v-spacer />
+      <v-avatar color="primary" size="36"> MB </v-avatar>
     </v-app-bar>
     <v-main>
       <v-container>
