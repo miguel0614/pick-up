@@ -98,12 +98,49 @@
                     </v-menu>
                   </v-list-item-content>
                 </v-list-item>
+                  <v-list-item>
+                  <v-list-item-content>
+<v-row dense>
 
+              <v-col>
+                <v-select
+                  ref="hour"
+                  :rules="[v => !!v || 'Hour is required']"
+                  label="Hour"
+                  :items="['01', '02', '03', '04', '05', '06', '07', '08', '09','10','11','12']"
+                  v-model="hour"
+                  required="true"
+                ></v-select>
+              </v-col>
+              <v-col>
+                <v-select
+                  ref="minute"
+                  :rules="[v => !!v || 'Minute is required']"
+                  label="Minute"
+                  :items="['00', '15', '30', '45']"
+                  v-model="minute"
+                  required="true"
+                ></v-select>
+              </v-col>
+              <v-col>
+                <v-select
+                  ref="ampm"
+                  :rules="[v => !!v || 'AM/PM is required']"
+                  label="AM/PM"
+                  :items="['AM', 'PM']"
+                  v-model="ampm"
+                  required="true"
+                ></v-select>
+              </v-col>
+            </v-row>
+                  </v-list-item-content>
+                  </v-list-item>
                 <v-card-actions>
                   <v-spacer></v-spacer>
                   <v-btn text @click="dialog = false">Cancel</v-btn>
-                  <v-btn text @click="pick_location">Pick Location</v-btn>
+                  <v-btn text :disabled="new_meetup_information.price == '' || new_meetup_information.date == '' || ampm == '' || minute == '' || hour == ''" @click="pick_location">Pick Location</v-btn>
                 </v-card-actions>
+                
               </v-card>
             </v-dialog>
             <v-dialog v-model="dialog2" persistent>
@@ -120,6 +157,7 @@
                     <v-row>
                       <v-col cols = '8'>
                     <v-text-field
+                    ref='search_location'
                       v-model="search_location"
                       :rules="[
                         (v) => !!v || 'Not a valid Location']"
@@ -129,18 +167,30 @@
                     ></v-text-field>
                     </v-col>
                     <v-col cols='4'>
-                      <v-btn @click='autolocate()' :disabled='search_location.length == 0'>Search!
+                      <v-btn @click='autolocate()' :disabled='search_location && search_location.length == 0'>Search!
                       </v-btn>
                     </v-col>
                     </v-row>
                   </v-list-item-content>
+                </v-list-item>
+                <v-list-item>
+
+                                  <v-list-item-content>
+                        <v-select
+                        v-if='location_options.length != 0'
+          :items="location_options"
+          label="Matching Locations"
+          v-model='new_meetup_information.location'
+          solo
+        ></v-select>
+                          </v-list-item-content>
                 </v-list-item>
                 <v-card-actions>
                   <v-spacer></v-spacer>
                   <v-btn text @click="dialog2 = false">Cancel</v-btn>
                   <v-btn
                     text
-                    @click="dialog2 = false"
+                    @click="send_meetup"
                     :disabled="new_meetup_information.location == ''"
                     >Done</v-btn
                   >
@@ -183,6 +233,11 @@ export default {
   },
   data() {
     return {
+      ampm: "",
+      minute: "",
+      hour: "",
+      location_options: [],
+      coordinates: [],
       search_location: "",
       location: { latitude: 0, longitude: 0 },
       user_data: { username: "" },
@@ -217,11 +272,25 @@ export default {
         },
         function (err, result) {
           if (!err) {
+            const addresses = result.addresses;
+            app.location_options = []
+            app.coordinates = []
+            for (let address of addresses) {
+              const formattedAddress = address.formattedAddress;
+              let obj = {};
+              obj[formattedAddress] = {
+                latitude: address.latitude,
+                longitude: address.longitude,
+              };
+              app.location_options.push(formattedAddress);
+              app.coordinates.push(obj);
+            }
             console.log(result);
           }
         }
       );
-    },
+      this.$refs.search_location.reset()
+      },
     pick_location() {
       this.dialog = false;
       this.dialog2 = true;
@@ -244,6 +313,15 @@ export default {
         this.dialog = true;
       }
     },
+    send_meetup(){
+      this.dialog2 = false
+       const index = this.location_options.indexOf(this.new_meetup_information.location)
+       console.log(index)
+       this.new_meetup_information.latitude = this.coordinates[index][this.new_meetup_information.location].latitude
+       this.new_meetup_information.longitude = this.coordinates[index][this.new_meetup_information.location].longitude
+       this.new_meetup_information.time = this.hour + ":" + this.minute + " " + this.ampm
+
+    }
   },
   computed: {
     is_registered_user() {
