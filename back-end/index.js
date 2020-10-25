@@ -45,7 +45,7 @@ app.use(function (req, res, next) {
     queries.get_names().then(names => res.send(JSON.stringify(names)))
   })
 
-  app.get("/post_new_meeting", (req, res) => {
+  app.post("/post_new_meeting", (req, res) => {
     console.log("Names requested by: " + req.ip)
     queries.post_new_meeting(JSON.parse(req.body.meeting)).then(() => res.send(JSON.stringify("SUCCESS")))
   })

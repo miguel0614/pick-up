@@ -1,5 +1,9 @@
 <template>
   <v-container>
+        <v-snackbar color="#009B3C" v-model="showBar" :top="true">
+      "Arrived!"
+      <v-btn text dark @click="showBar = false">Close</v-btn>
+    </v-snackbar>
     <v-card min-height="5em" elevation="2" outlined class="mx-auto">
       <v-form @submit="submit($event)">
         <v-list-item dense>
@@ -10,7 +14,8 @@
         <v-list-item one-line>
           <v-list-item-content>
             <v-text-field
-              v-model="new_meetup_information.buyer"
+            ref='username'
+              v-model="buyer"
               :rules="[(v) => !!v || 'Not a valid username']"
               label="User Name"
               required
@@ -26,6 +31,7 @@
                   :disabled="!is_registered_user"
                   v-bind="attrs"
                   v-on="on"
+                  color='primary'
                   >Create!</v-btn
                 >
               </template>
@@ -43,7 +49,7 @@
                       ></v-row
                     >
                     <p class="overline mb-3">
-                      {{ names[new_meetup_information.buyer] }}
+                      {{ names[buyer] }}
                     </p>
                   </v-list-item-content>
                 </v-list-item>
@@ -205,7 +211,69 @@
     <br />
 
     <v-card min-height="20em" elevation="2" outlined tile>
-      <v-card-title>Pending Meetups</v-card-title>
+              <v-list-item dense>
+          <v-list-item-content>
+            <div class="overline mb-3">Meetups</div>
+          </v-list-item-content>
+        </v-list-item>
+        <v-container v-if='showMeetings'>
+        <v-card  class="scroll" raised>
+            <div style="display: flex;" :style="{fontWeight:'bold'}"> Meetup with {{new_meetup_information.buyer}}
+            </div>
+    <v-list-item two-line>
+      <v-list-item-content>
+        <v-list-item-title>Price:</v-list-item-title>
+        <v-list-item-subtitle>${{new_meetup_information.price}}</v-list-item-subtitle>
+      </v-list-item-content>
+    </v-list-item>
+        <v-list-item two-line>
+      <v-list-item-content>
+        <v-list-item-title>Time:</v-list-item-title>
+        <v-list-item-subtitle>{{new_meetup_information.time}}</v-list-item-subtitle>
+      </v-list-item-content>
+    </v-list-item>
+        <v-list-item two-line>
+      <v-list-item-content>
+        <v-list-item-title>Location:</v-list-item-title>
+        <v-list-item-subtitle>{{new_meetup_information.location}}</v-list-item-subtitle>
+      </v-list-item-content>
+    </v-list-item>
+    <v-list-item>
+      <v-list-item-content>
+        <v-btn block :disabled='disableMeet' @click='meet' color='primary'>Meetup!</v-btn>
+      </v-list-item-content>
+    </v-list-item>
+        </v-card>
+        </v-container>
+    </v-card>
+    <br />
+    <v-card v-if='disableMeet' elevation="2" outlined tile>
+                    <v-list-item dense>
+          <v-list-item-content>
+            <div class="overline mb-3">Meetup Details:</div>
+          </v-list-item-content>
+        </v-list-item>
+        <v-card  raised>
+<v-list-item two-line>
+      <v-list-item-content>
+        <v-list-item-title>Distance:</v-list-item-title>
+        <v-list-item-subtitle>{{distance}}</v-list-item-subtitle>
+      </v-list-item-content>
+    </v-list-item>
+        <v-list-item two-line>
+      <v-list-item-content>
+        <v-row>
+          <v-col>
+            <v-btn color='red' block :disabled='!showMeetup&& !close'>Emergency</v-btn>
+          </v-col>
+          <v-col>
+            <v-btn color='green' block :disabled='!showMeetup && !close'>Completed</v-btn>
+          </v-col>
+        </v-row>
+      </v-list-item-content>
+    </v-list-item>
+        </v-card>
+
     </v-card>
   </v-container>
 </template>
@@ -215,6 +283,7 @@ import Radar from "radar-sdk-js";
 
 import GET_USERNAMES from "../services/get_usernames.service";
 import GET_NAMES from "../services/get_names.service";
+import POST_NEW_MEETING from "../services/post_new_meeting.service"
 
 Radar.initialize("prj_test_pk_fb42d9965e5d72e299adfe6e5b2d040b03f43b6c");
 
@@ -233,6 +302,13 @@ export default {
   },
   data() {
     return {
+      showBar: false,
+      close: false,
+      distance: '',
+      showMeetup: true,
+      showMeetings:false,
+      disableMeet: false,
+      buyer: "",
       ampm: "",
       minute: "",
       hour: "",
@@ -252,13 +328,44 @@ export default {
         time: "",
         date: "",
         buyer: "",
-        seller: "",
+        seller: "CtrlAltDefeat",
         price: "",
       },
       fromDateMenu: false,
     };
   },
   methods: {
+    meet(){
+      const app = this
+      this.disableMeet = true
+      Radar.getDistance({
+  origin: {
+    latitude: app.location.latitude,
+    longitude: app.location.longitude
+  },
+  destination: {
+    latitude: app.new_meetup_information.latitude,
+    longitude: app.new_meetup_information.longitude
+  },
+  modes: [
+    'foot',
+    'car'
+  ],
+  units: 'imperial'
+}, function(err, result) {
+  if (!err) {
+    console.log(result)
+    app.distance = result.routes.geodesic.distance.text
+    setTimeout(()=>{
+      app.distance = ".01 miles"
+      app.close = true
+      app.showBar = true
+      
+    },10000)
+    // do something with result.routes
+  }
+});
+    },
     autolocate() {
       const app = this;
       Radar.autocomplete(
@@ -315,27 +422,30 @@ export default {
     },
     send_meetup(){
       this.dialog2 = false
+      const app = this
        const index = this.location_options.indexOf(this.new_meetup_information.location)
-       console.log(index)
        this.new_meetup_information.latitude = this.coordinates[index][this.new_meetup_information.location].latitude
        this.new_meetup_information.longitude = this.coordinates[index][this.new_meetup_information.location].longitude
        this.new_meetup_information.time = this.hour + ":" + this.minute + " " + this.ampm
-
+       this.new_meetup_information.buyer = this.buyer
+       POST_NEW_MEETING(this.new_meetup_information)
+       this.$refs.username.reset()
+       setTimeout(()=>app.showMeetings = true, 7000)
     }
   },
   computed: {
     is_registered_user() {
-      return this.valid_users.includes(this.new_meetup_information.buyer);
+      return this.valid_users.includes(this.buyer);
     },
     name_icon() {
       if (
-        this.names[this.new_meetup_information.buyer] &&
-        this.names[this.new_meetup_information.buyer][0] &&
-        this.names[this.new_meetup_information.buyer].split(" ")[1][0]
+        this.names[this.buyer] &&
+        this.names[this.buyer][0] &&
+        this.names[this.buyer].split(" ")[1][0]
       )
         return (
-          this.names[this.new_meetup_information.buyer][0] +
-          this.names[this.new_meetup_information.buyer].split(" ")[1][0]
+          this.names[this.buyer][0] +
+          this.names[this.buyer].split(" ")[1][0]
         );
       else return "";
     },
